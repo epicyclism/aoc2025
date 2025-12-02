@@ -76,6 +76,38 @@ auto pt12(auto const& in)
 	return std::make_pair(p1, p2);
 }
 
+constexpr std::array magnitudes = {1LL, 10LL, 100LL, 1000LL, 10000LL, 100000LL, 1000000LL, 10000000LL, 100000000LL, 1000000000LL, 10000000000LL};
+constexpr std::array factors1   = { 1LL, 11LL, 101LL, 1001LL, 10001LL, 100001LL, 1000001LL, 10000001LL};
+constexpr std::array factors2   = { 1LL, 101LL, 10101LL, 1010101LL, 101010101LL, 10101010101LL,
+										1001LL, 1001001001LL,
+									10001LL, 100010001LL };
+
+int mag(int64_t v)
+{
+	return std::ranges::distance(std::ranges::begin(magnitudes), std::ranges::lower_bound(magnitudes, v));
+}
+
+auto pt12_2(auto const& in)
+{
+	timer t("p12_2");
+	int64_t p1 = 0;
+	int64_t p2 = 0;
+
+	for(auto[f, t] : in)
+	{
+		for(; f <= t; ++f)
+		{
+			auto m = mag(f);
+			if((m & 1) == 0)
+			{
+				if(f%factors1[m/2] == 0)
+					p1 += f;
+			}
+		}
+	}
+	return std::make_pair(p1, p2);
+}
+
 int main()
 {
 	auto in = get_input();
