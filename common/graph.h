@@ -514,3 +514,54 @@ public:
         return stride_ * stride_;
     }
 };
+
+// grid that looks all around
+//
+class grid_direct8
+{
+private:
+    const size_t length_;
+    const size_t stride_;
+
+public:
+    grid_direct8(size_t l, size_t s) : length_{l}, stride_{ s }
+    {}
+    std::vector<vertex_id_t> operator[](vertex_id_t v) const
+    {
+        std::vector<vertex_id_t> rv;
+        unsigned k = 0;
+        bool l = v % stride_ != 0;
+        bool r = v % stride_ != stride_ - 1;
+        bool u = v > stride_;
+        bool d = v < length_ - stride_;
+        if(l)
+        {
+            if(u)
+                rv.emplace_back(v - stride_ - 1);
+            rv.emplace_back(v - 1);
+            if(d)
+                rv.emplace_back(v + stride_ - 1);
+        }
+        if(u)
+            rv.emplace_back(v - stride_);
+        if(d)
+            rv.emplace_back(v + stride_);
+        if(r)
+        {
+            if(u)
+                rv.emplace_back(v - stride_ + 1);
+            rv.emplace_back(v + 1);
+            if(d)
+                rv.emplace_back(v + stride_ + 1);
+        }
+        return rv;
+    }
+    size_t stride () const
+    {
+        return stride_;
+    }
+    size_t size() const
+    {
+        return length_;
+    }
+};
