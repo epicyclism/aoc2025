@@ -34,6 +34,7 @@ interval intersection(interval const& l, interval const& r)
 
 std::vector<std::pair<int64_t, int64_t>> condense(std::vector<std::pair<int64_t, int64_t>>& v)
 {
+	timer t("input");
 	std::vector<std::pair<int64_t, int64_t>> rv;
 	interval tmp = v.front();
 	auto i = v.begin();

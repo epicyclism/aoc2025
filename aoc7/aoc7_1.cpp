@@ -14,64 +14,73 @@
 
 auto get_input()
 {
-	std::vector<int64_t> v;
+	std::vector<char> v;
 	size_t stride = 0;
 	std::string ln;
 	while(std::getline(std::cin, ln))
 	{
 		if(stride == 0)
 			stride = ln.size();
-		auto os = v.size();
-		v.resize(v.size() + stride);
-		std::ranges::transform(ln, v.begin() + os, [](auto c){ if(c == 'S') return 1; if (c == '^') return -1; return 0;});
+		v.append_range(ln);
 	}
 	return std::make_pair(stride, v);
 }
 
-int op(auto const& a, auto const& b)
+void op(auto const& a, auto const& b, auto& out)
 {
+	int r = 0;
 	auto ita = a.begin();
 	auto itb = b.begin();
-	int p1 = 0;
-	for( ; ita != a.end(); ++ita, ++itb)
+	auto ito = out.begin();
+	for( ; ita != a.end(); ++ita, ++itb, ++ito)
 	{
-		if(*itb < 0)
+		if(*ita == 'S')
+			*itb = '|';
+		if(*ita == '|')
 		{
-			*(itb - 1) += (*ita);
-			*(itb + 1) += (*ita);
-			p1 += *ita > 0;
+			if(*itb == '^')
+			{
+				*ito = '+';
+				*(itb - 1) = '|';
+				*(itb + 1) = '|';
+				r += 2;
+			}
+			else
+			{
+				*itb = '|';
+			}
 		}
-		else
-		if(*ita > 0)
-			*itb += *ita;
 	}
-	return p1;
 }
 
-auto pt12(auto const& in)
+auto pt1(auto const& in)
 {
-	timer t("p12");
+	timer t("p1");
 	auto[stride, grid] = in;
 	auto ita = grid.begin();
 	auto itb = grid.begin() + stride;
 	int pt1 = 0;
+	int pt2 = 0;
+	std::vector<char> tmp(stride, '.');
 	while(itb != grid.end())
 	{
+		std::ranges::fill(tmp, '.');
 		std::span a(ita, stride);
 		std::span b(itb, stride);
-		pt1 += op(a, b);
+		op(a, b, tmp);
+		pt1 += std::ranges::count(tmp, '+');
 		ita = itb;
 		itb += stride;
-
 	}
-	std::span a(ita, stride);
-	return std::make_pair(pt1, std::ranges::fold_left(a, 0LL, [](auto sm, auto v){if( v > 0) return sm + v; return sm;}));
+	return pt1;
 }
+
+// 3406 too low
+//
 
 int main()
 {
 	auto in = get_input();
-	auto[p1,p2] = pt12(in);
+	auto p1 = pt1(in);
 	fmt::println("pt1 = {}", p1);
-	fmt::println("pt2 = {}", p2);
 }
