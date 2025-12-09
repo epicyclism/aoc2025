@@ -54,6 +54,7 @@ auto k_xy(auto k)
 
 auto compute_distances(std::vector<pt_t> const& p)
 {
+	timer t("compute distances");
 	const auto st = p.size();
 	std::vector<std::pair<int64_t, int64_t>> r;
 	r.reserve(st * st);
