@@ -28,8 +28,15 @@ constexpr int64_t n_digits = 12;
 template<int64_t ND> std::pair<int64_t, int64_t> jolt_wkr(std::string_view s, size_t start, int nth)
 {
 	const auto in = ND - nth - 1;
+#if 0
 	auto me = std::ranges::max_element(s.substr(start, s.length() - in - start)) ;
 	return std::make_pair((*me - '0') * magnitudes[in], std::ranges::distance(std::ranges::begin(s), me + 1));
+#else
+	auto ss = s.substr(start, s.length() - in - start);
+	auto me = std::ranges::max_element(ss);
+	auto dd = start + std::ranges::distance(std::ranges::begin(ss), me + 1);
+	return std::make_pair((*me - '0') * magnitudes[in], dd );
+#endif
 }
 
 int64_t jolt(std::string_view s)
@@ -77,4 +84,4 @@ int main()
 	auto p2 = pt2(in);
 	fmt::println("pt1 = {}", p1);
 	fmt::println("pt2 = {}", p2);
-}
+ }

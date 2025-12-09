@@ -57,7 +57,7 @@ include_directories(${PROJECT_SOURCE_DIR}/common)
 find_package(fmt CONFIG REQUIRED)
 
 add_subdirectory(aoc1)
-#add_subdirectory(aoc2)
+add_subdirectory(aoc2)
 add_subdirectory(aoc3)
 add_subdirectory(aoc4)
 add_subdirectory(aoc5)

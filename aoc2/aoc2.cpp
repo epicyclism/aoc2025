@@ -15,8 +15,8 @@
 auto parse_range(std::string_view s)
 {
 	auto p = s.find('-');
-	auto f = sv_to_t<int64_t>(std::string_view(s.begin(), p));
-	auto t = sv_to_t<int64_t>(std::string_view(s.begin() + p + 1, s.size() - p));
+	auto f = sv_to_t<int64_t>(std::string_view(s.data(), p));
+	auto t = sv_to_t<int64_t>(std::string_view(s.data() + p + 1, s.size() - p));
 	return std::make_pair(f, t);
 }
 

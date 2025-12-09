@@ -36,10 +36,14 @@ int64_t pt1(auto const& in)
 	return p1;
 }
 
+template<typename T> bool between(T t, T a, T b)
+{
+	return (t >= a && t <= b) || (t <= a && t >= b);
+}
+
 // after a Stack Overflow point in polygon answer...
 bool inside(auto p, auto const& vp)
 {
-	auto between = [](auto t, auto a, auto b ) -> bool { return (t >= a && t <= b) || (t <= a && t >= b); };
 	bool in = false;
 
 	auto i1 = vp.begin();
@@ -66,94 +70,29 @@ bool inside(auto p, auto const& vp)
 	return in;
 }
 
-bool all_inside(auto a, auto b, auto const& vp)
+bool all_inside(auto a, auto b, auto const& vp, auto const& xx, auto const& yy)
 {
 	auto A = std::make_pair(a.first, b.second);
 	auto B = std::make_pair(b.first, a.second);
 	if (inside(A, vp) && inside(B, vp))
 	{
-		// check the perimeter...
-		// A - a
-		if (a.second > A.second)
+		for (auto y : yy)
 		{
-			auto tt = a;
-			for (auto t = A.second; t <= a.second; ++t)
+			if (between(y, a.second, b.second))
 			{
-				tt.second = t;
-				if (!inside(tt, vp))
+				if(!inside(std::make_pair(a.first, y), vp))
+					return false;
+				if(!inside(std::make_pair(b.first, y), vp))
 					return false;
 			}
-		}
-		else
+		}		
+		for (auto x : xx)
 		{
-			auto tt = a;
-			for (auto t = a.second; t <= A.second; ++t)
+			if (between(x, a.first, b.first))
 			{
-				tt.second = t;
-				if (!inside(tt, vp))
+				if (!inside(std::make_pair(x, a.second), vp))
 					return false;
-			}
-		}
-		// B - b
-		if (b.second > B.second)
-		{
-			auto tt = b;
-			for (auto t = B.second; t <= b.second; ++t)
-			{
-				tt.second = t;
-				if (!inside(tt, vp))
-					return false;
-			}
-		}
-		else
-		{
-			auto tt = a;
-			for (auto t = b.second; t <= B.second; ++t)
-			{
-				tt.second = t;
-				if (!inside(tt, vp))
-					return false;
-			}
-		}
-		// A - b
-		if (A.first > b.first)
-		{
-			auto tt = b;
-			for (auto t = b.first; t <= A.first; ++t)
-			{
-				tt.first = t;
-				if (!inside(tt, vp))
-					return false;
-			}
-		}
-		else
-		{
-			auto tt = b;
-			for (auto t = A.first; t <= b.first; ++t)
-			{
-				tt.first = t;
-				if (!inside(tt, vp))
-					return false;
-			}
-		}
-		// B - a
-		if (a.first > B.first)
-		{
-			auto tt = a;
-			for (auto t = B.first; t <= a.first; ++t)
-			{
-				tt.first = t;
-				if (!inside(tt, vp))
-					return false;
-			}
-		}
-		else
-		{
-			auto tt = a;
-			for (auto t = a.first; t <= B.first; ++t)
-			{
-				tt.first = t;
-				if (!inside(tt, vp))
+				if (!inside(std::make_pair(x, b.second), vp))
 					return false;
 			}
 		}
@@ -166,17 +105,30 @@ int64_t pt2(auto const& in)
 {
 	timer t("p2");
 	auto area = [](auto a, auto b){ return (std::abs(a.first - b.first) + 1) * (std::abs(a.second - b.second) + 1);};
+
+	std::vector<int64_t> xx;
+	std::vector<int64_t> yy;
+	for (auto p : in)
+	{
+		xx.emplace_back(p.first);
+		yy.emplace_back(p.second);
+	}
+	std::ranges::sort(xx);
+	std::ranges::sort(yy);
+	auto [xe, xl] = std::ranges::unique(xx);
+	xx.erase(xe, xl);
+	auto[ye, yl] = std::ranges::unique(yy);
+	yy.erase(ye, yl);
 	int64_t p2 = 0;
 	for(auto y = 0; y < in.size() - 1; ++y)
 		for(auto x = y + 1; x < in.size(); ++x)
 		{
 			auto ar = area(in[x], in[y]);
-			if(ar > p2 && all_inside(in[x], in[y], in))
+			if(ar > p2 && all_inside(in[x], in[y], in, xx, yy))
 				p2 = ar;
 		}
 	return p2;
 }
-// 4620005060 too high
 
 int main()
 {
