@@ -24,14 +24,67 @@ auto get_input()
 	return v;
 }
 
-int64_t pt1(auto const& in)
+// scraped from Matthew's solution. 1/5 the execution time...
+//
+int64_t cross_product(const auto& a, const auto& b, const auto& c) {
+    return (b.first - a.first) * (c.second - a.second) - (b.second - a.second) * (c.first - a.first);
+}
+
+int64_t dist_sq(const auto& a, const auto& b) {
+    return (a.first - b.first)*(a.first - b.first) + (a.second - b.second)*(a.second - b.second);
+}
+
+// Grahams scan algorithm to find convex hull
+auto convex_hull(std::vector<std::pair<int64_t, int64_t>>& points) {
+
+    if(points.size() < 3) {
+        return points;
+    }
+
+    // Move bottom most point to the front
+    auto it = std::min_element(points.begin(), points.end(), [](const auto& a, const auto& b) {
+        return (a.second < b.second) || (a.second == b.second && a.first < b.first);
+    });
+    std::iter_swap(points.begin(), it);
+    auto p0 = points[0];
+
+    // Sort the rest of the points based on polar angle relative to p0
+    std::sort(points.begin() + 1, points.end(), [&](const auto& a, const auto& b) {
+        int64_t cp = cross_product(p0, a, b);
+        if (cp == 0) {
+            // If collinear, put the one CLOSER to p0 first
+            return dist_sq(p0, a) < dist_sq(p0, b); 
+        }
+        return cp > 0;
+    });
+
+    auto stack = std::vector<std::pair<int64_t, int64_t>>{p0, points[1]};
+
+    for(const auto& p : points | std::views::drop(1)) {
+        while (stack.size() > 1){
+            auto top = stack.back();
+            auto next_to_top = stack[stack.size() - 2];
+
+            if(cross_product(next_to_top, top, p) <= 0) {
+                stack.pop_back();
+            } else {
+                break;
+            }
+        }
+        stack.push_back(p);
+    }
+    return stack;
+}
+
+int64_t pt1(auto in)
 {
 	timer t("p1");
 	auto area = [](auto a, auto b){ return (std::abs(a.first - b.first) + 1) * (std::abs(a.second - b.second) + 1);};
 	int64_t p1 = 0;
-	for (auto y = 0; y < in.size() - 1; ++y)
-		for (auto x = y + 1; x < in.size(); ++x)
-			p1 = std::max(p1, area(in[x], in[y]));
+	auto pp = convex_hull(in);
+	for (auto y = 0; y < pp.size() - 1; ++y)
+		for (auto x = y + 1; x < pp.size(); ++x)
+			p1 = std::max(p1, area(pp[x], pp[y]));
 
 	return p1;
 }

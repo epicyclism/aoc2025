@@ -16,7 +16,6 @@ struct pt_t
 	int64_t x_;
 	int64_t y_;
 	int64_t z_;
-	int64_t k_;
 };
 
 int64_t d2(pt_t a, pt_t b)
@@ -31,11 +30,10 @@ auto get_input()
 {
 	std::vector<pt_t> v;
 	std::string ln;
-	int64_t k = 0;
 	while(std::getline(std::cin, ln))
 	{
 		auto[m, x, y, z] = ctre::match<"(\\d+),(\\d+),(\\d+)">(ln);
-		v.emplace_back(x.to_number<int64_t>(), y.to_number<int64_t>(), z.to_number<int64_t>(), k++);
+		v.emplace_back(x.to_number<int64_t>(), y.to_number<int64_t>(), z.to_number<int64_t>());
 	}
 	return v;
 }
@@ -68,10 +66,10 @@ auto compute_distances(std::vector<pt_t> const& p)
 	return r;
 }
 
-int64_t pt1(auto const& in)
+int64_t pt1(auto const& in, auto const& d)
 {
 	timer t("p1");
-	auto d = compute_distances(in);
+//	auto d = compute_distances(in);
 	std::vector<std::unordered_set<int64_t>> ss;
 	const auto nd = (in.size() < 1000 ? 10 : 1000);
 	for(int n = 0; n < nd; ++n)
@@ -117,10 +115,10 @@ int64_t pt1(auto const& in)
 	return p1;
 }
 
-int64_t pt2(auto const& in)
+int64_t pt2(auto const& in, auto const& d)
 {
 	timer t("p2");
-	auto d = compute_distances(in);
+//	auto d = compute_distances(in);
 	std::vector<std::unordered_set<int64_t>> ss;
 	int64_t p2 = 0;
 	for(auto n = 0; n < d.size(); ++n)
@@ -170,8 +168,9 @@ int64_t pt2(auto const& in)
 int main()
 {
 	auto in = get_input();
-	auto p1 = pt1(in);
-	auto p2 = pt2(in);
+	auto d = compute_distances(in);
+	auto p1 = pt1(in, d);
+	auto p2 = pt2(in, d);
 	fmt::println("pt1 = {}", p1);
 	fmt::println("pt2 = {}", p2);
 }

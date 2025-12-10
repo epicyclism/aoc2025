@@ -2,22 +2,21 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <map>
 #include <unordered_set>
+#include <set>
 #include <queue>
 #include <algorithm>
 #include <numeric>
 #include <ranges>
 
 #include <fmt/format.h>
-
-#if defined (USE_Z3)
-#include <z3++.h>
-#endif
+#include <fmt/ranges.h>
 
 #include "ctre_inc.h"
 #include "timer.h"
 
-using j_t = std::array<int, 10>;
+using j_t = std::array<uint8_t, 10>;
 
 struct b_t
 {
@@ -62,7 +61,7 @@ j_t to_jolts(std::string_view v)
 
 	for(auto j : ctre::search_all<"(\\d+)">(v))
 	{
-		r[n] = j.to_number<int>();
+		r[n] = j.to_number<uint8_t>();
 		++n;
 	}
 	return r;
@@ -77,9 +76,11 @@ auto get_input()
 		b_t bt;
 		if(auto[m, b, p, j] = ctre::match<"\\[([.#]+)\\] ([^\\{}]+) \\{([^\\}]+)\\}">(ln); m)
 		{
+//			fmt::println("{} {} {}", b.view(), p.view(), j.view());
 			bt.tgt_ = to_tgt(b);
 			bt.press_ = to_press(p);
 			bt.jolts_ = to_jolts(j);
+//			fmt::println("{:x} {} {}", bt.tgt_, bt.press_, bt.jolts_);
 			vb.emplace_back(std::move(bt));
 		}
 		else
@@ -118,34 +119,37 @@ int pt1(auto const& in)
 	return std::ranges::fold_left(in, 0, [](auto sm, auto& b){ return sm + shortest1(b);});
 }
 
-constexpr int matsz = 16;
-using mat1  = std::array<int, matsz>;
-using mat11 = std::array<mat1, matsz>;
-
-mat11 mm()
+using mat10   = std::array<int, 10>;
+using mat1010 = std::array<mat10, 10>;
+mat1010 mm()
 {
-	mat11 m;
-	for(int n = 0; n < matsz; ++n)
+	mat1010 m;
+	for(int n = 0; n < 10; ++n)
 		m[n].fill(0);
 	return m;
 }
 
-mat1 build_tgt(b_t const& bt)
+void dmp(mat1010 const& mm)
 {
-	mat1 out;
-    out.fill(0);
+	for(int r = 0; r < 10; ++r)
+		fmt::println("{}", mm[r]);
+}
+
+mat10 build_tgt(b_t const& bt)
+{
+	mat10 out;
 	std::ranges::copy(bt.jolts_, std::ranges::begin(out));
 	return out;
 }
 
-mat11 build_coeff(b_t const& bt)
+mat1010 build_coeff(b_t const& bt)
 {
-	mat11 out = mm();
+	mat1010 out = mm();
 	int col = 0;
 	for(auto p: bt.press_)
 	{
 		uint32_t b = 1;
-		for(int r = 0; r < matsz; ++r)
+		for(int r = 0; r < 10; ++r)
 		{
 			if(p & b)
 				out[r][col] = 1;
@@ -156,55 +160,71 @@ mat11 build_coeff(b_t const& bt)
 	return out;
 }
 
+void swap(mat10& l, mat10& r)
+{
+	for(int n = 0; n < 10; ++n)
+		std::swap(l[n], r[n]);
+}
+
+mat10 times(mat1010 const& mm, mat10 const& m)
+{
+	mat10 out;
+	for(int row = 0; row < 10; ++row)
+	{
+		out[row] = std::inner_product(mm[row].begin(), mm[row].end(), m.begin(), 0);
+	}
+	return out;
+}
+
+double determinant(mat1010 const& m)
+{
+	double det = 0.0;
+	for (int i = 0; i < 10; i++)
+	{
+		det += m[0][i] * (m[1][(i + 1) % 10] * m[2][(i + 2) % 10] - m[1][(i + 2) % 10] * m[2][(i + 1) % 10]);
+	}
+	return det;
+}
+
+mat1010 invert(mat1010 m)
+{
+	fmt::println("det = {}", determinant(m));
+	return m;
+}
+
+void test(b_t const& bt, mat10 const& a)
+{
+	auto tgt = build_tgt(bt);
+	auto cf = build_coeff(bt);
+	dmp(cf);
+	auto rf = times(cf, a);
+	fmt::println(" * {}", a);
+	fmt::println(" = {}", rf);
+	fmt::println(" == {}", tgt);
+}
+
 int shortest3(b_t const& bt)
 {
 	auto tgt = build_tgt(bt);
 	auto cf = build_coeff(bt);
-	z3::context c;
-    z3::expr t[] = {c.int_const("a"), c.int_const("b"), c.int_const("c"), c.int_const("d"),
-					c.int_const("e"), c.int_const("f"), c.int_const("g"), c.int_const("h"),
-					c.int_const("i"), c.int_const("j"), c.int_const("k"), c.int_const("l"),
-				    c.int_const("m"), c.int_const("n"),c.int_const("o"),c.int_const("p")};
-    z3::optimize o(c);
-    for(int r = 0; r < 16; ++r)
-    {
-        o.add(c.int_val(cf[r][0]) * t[0] + c.int_val(cf[r][1]) * t[1] + c.int_val(cf[r][2]) * t[2] 
-            + c.int_val(cf[r][3]) * t[3] + c.int_val(cf[r][4]) * t[4] + c.int_val(cf[r][5]) * t[5] 
-            + c.int_val(cf[r][6]) * t[6] + c.int_val(cf[r][7]) * t[7] + c.int_val(cf[r][8]) * t[8]
-            + c.int_val(cf[r][9]) * t[9] + c.int_val(cf[r][10]) * t[10] + c.int_val(cf[r][11]) * t[11]
-            + c.int_val(cf[r][12]) * t[12] + c.int_val(cf[r][13]) * t[13] + c.int_val(cf[r][14]) * t[14]
-            + c.int_val(cf[r][15]) * t[15] == c.int_val(tgt[r]));
-    }
-    for(int n = 0; n < 16; ++n)
-        o.add(t[n] >= 0);
-    o.minimize(t[0] + t[1] + t[2] + t[3] + t[4] + t[5] + t[6] + t[7] + t[8]+ t[9] + t[10] + t[11] + t[12] + t[13] + t[14] + t[15]);
-    if(o.check() != z3::sat)
-    {
-        fmt::println("unsat...");
-        return 0;
-    }
-    return o.get_model().eval(t[0] + t[1] + t[2] + t[3] + t[4] + t[5] + t[6] + t[7] + t[8]
-								+ t[9] + t[10] + t[11] + t[12] + t[13]+ t[14] + t[15]).as_int64();
+	auto icf = invert(cf);
+	auto bp = times(icf, tgt);
+//	return std::ranges::fold_left(bp, 0);
+	return 0;
 }
 
-#if defined (USE_Z3)
 int pt2(auto const& in)
 {
 	timer t("p2");
 	return std::ranges::fold_left(in, 0, [](auto sm, auto& b){ return sm + shortest3(b);});
 }
-#else
-int pt2(auto const& in)
-{
-	fmt::println("Z3 needed for pt2, for now");
-}
-#endif
 
 int main()
 {
 	auto in = get_input();
 	auto p1 = pt1(in);
 	auto p2 = pt2(in);
+	test(in[0], {1, 3, 0, 3, 1, 2, 0, 0, 0, 0});
 	fmt::println("pt1 = {}", p1);
 	fmt::println("pt2 = {}", p2);
 }
