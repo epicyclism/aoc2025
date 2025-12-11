@@ -156,6 +156,7 @@ mat11 build_coeff(b_t const& bt)
 	return out;
 }
 
+#if defined (USE_Z3)
 int shortest3(b_t const& bt)
 {
 	auto tgt = build_tgt(bt);
@@ -187,7 +188,6 @@ int shortest3(b_t const& bt)
 								+ t[9] + t[10] + t[11] + t[12] + t[13]+ t[14] + t[15]).as_int64();
 }
 
-#if defined (USE_Z3)
 int pt2(auto const& in)
 {
 	timer t("p2");
@@ -197,6 +197,7 @@ int pt2(auto const& in)
 int pt2(auto const& in)
 {
 	fmt::println("Z3 needed for pt2, for now");
+	return 0;
 }
 #endif
 

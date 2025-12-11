@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <bitset>
+#include <unordered_map>
 #include <algorithm>
 #include <numeric>
 #include <ranges>
@@ -18,18 +18,8 @@ constexpr vertex_t encode(std::string_view n)
 	return n[0] - 'a' | (n[1] - 'a') << 5 | (n[2] - 'a') << 10;
 }
 
-constexpr std::string_view decode(vertex_t v)
-{
-	static char buf[4];
-	buf[0] = (v & 0x01f) + 'a';
-	buf[1] = ((v >> 5) & 0x01f) + 'a';
-	buf[2] = ((v >> 10) & 0x01f) + 'a';
-	buf[3] = 0;
-	return std::string_view(buf, 3);
-}
-
-using visited_t = std::bitset<32768>;
 using graph_t = std::vector<std::vector<vertex_t>>;
+using cache_t = std::unordered_map<vertex_t, int64_t>;
 
 auto get_input()
 {
@@ -49,85 +39,40 @@ auto get_input()
 	return g;
 }
 
-void dfs(graph_t const& g, vertex_t f, vertex_t t, int& cnt)
+int64_t dfs(graph_t const& g, vertex_t f, vertex_t t, cache_t& cache)
 {
-	for(auto n: g[f])
-	{
-		if(n == t)
-			++cnt;
-		else
-			dfs(g, n, t, cnt);
-	}
+	if (f == t)
+		return 1;
+	if (cache.contains(f))
+		return cache[f];
+	auto sm = std::ranges::fold_left(g[f], 0LL, [&](auto s, auto v) { return s + dfs(g, v, t, cache); });
+	cache[f] = sm;
+	return sm;
 }
 
 int64_t pt1(auto const& in)
 {
 	timer t("p1");
+	cache_t cache;
 	int pt1 = 0;
-	dfs(in, encode("you"), encode("out"), pt1);
-	return pt1;
-}
-
-void dfs2(graph_t const& g, vertex_t f, vertex_t t, bool dac, bool fft, visited_t& v, int& cnt)
-{
-	for(auto n: g[f])
-	{
-		if(!v[n])
-		{
-			v.set(n);
-			if(n == t)
-			{
-				if(dac && fft)
-				{
-					++cnt;
-					fmt::println("{}", cnt);
-				}
-			}
-			else
-			{
-#if 1
-				if(n == encode("dac"))
-				{
-					if(dac)
-						return;
-					dac = true;
-				}
-				if(n == encode("fft"))
-				{
-					if(fft)
-						return;
-					fft = true;
-				}
-#endif
-				dfs2(g, n, t, dac, fft, v, cnt);
-			}
-		}
-		else
-			fmt::println("loop");
-		v.reset(n);
-	}
-	fmt::println("ret from {}", decode(f));
-}
-
-int64_t pt2a(auto const& in)
-{
-	timer t("p2");
-	int pt2= 0;
-	bool dac = false;
-	bool fft = false;
-	dfs(in, encode("svr"), encode("out"), pt2);
-	return pt2;
+	return dfs(in, encode("you"), encode("out"), cache);
 }
 
 int64_t pt2(auto const& in)
 {
 	timer t("p2");
-	int pt2= 0;
-	bool dac = false;
-	bool fft = false;
-	visited_t v;
-	dfs2(in, encode("svr"), encode("out"), dac, fft, v, pt2);
-	return pt2;
+	cache_t cache;
+
+	auto a = dfs(in, encode("svr"), encode("fft"), cache);
+	cache.clear();
+	auto b = dfs(in, encode("fft"), encode("dac"), cache);
+	cache.clear();
+	auto c = dfs(in, encode("dac"), encode("fft"), cache);
+	cache.clear();
+	auto d =dfs(in, encode("dac"), encode("out"), cache);
+	if (c != 0)
+		fmt::println("tilt - dac-fft != 0");
+	return a * b * d;
 }
 
 int main()
