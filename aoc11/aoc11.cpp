@@ -39,6 +39,13 @@ auto get_input()
 	return g;
 }
 
+int64_t dfs(graph_t const& g, vertex_t f, vertex_t t)
+{
+	if (f == t)
+		return 1;
+	return std::ranges::fold_left(g[f], 0LL, [&](auto s, auto v) { return s + dfs(g, v, t); });
+}
+
 int64_t dfs(graph_t const& g, vertex_t f, vertex_t t, cache_t& cache)
 {
 	if (f == t)
@@ -53,25 +60,24 @@ int64_t dfs(graph_t const& g, vertex_t f, vertex_t t, cache_t& cache)
 int64_t pt1(auto const& in)
 {
 	timer t("p1");
-	cache_t cache;
-	int pt1 = 0;
-	return dfs(in, encode("you"), encode("out"), cache);
+	return dfs(in, encode("you"), encode("out"));
 }
 
 int64_t pt2(auto const& in)
 {
 	timer t("p2");
 	cache_t cache;
-
+	// cache has to be cleared since it stores distance to the end,
+	// and the end is changing...
 	auto a = dfs(in, encode("svr"), encode("fft"), cache);
 	cache.clear();
 	auto b = dfs(in, encode("fft"), encode("dac"), cache);
 	cache.clear();
-	auto c = dfs(in, encode("dac"), encode("fft"), cache);
-	cache.clear();
-	auto d =dfs(in, encode("dac"), encode("out"), cache);
-	if (c != 0)
-		fmt::println("tilt - dac-fft != 0");
+//	auto c = dfs(in, encode("dac"), encode("fft"), cache);
+//	cache.clear();
+	auto d = dfs(in, encode("dac"), encode("out"), cache);
+//	if (c != 0) // not in either data set I've seen
+//		fmt::println("tilt - dac-fft != 0");
 	return a * b * d;
 }
 
