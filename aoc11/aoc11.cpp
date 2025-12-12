@@ -23,6 +23,7 @@ using cache_t = std::unordered_map<vertex_t, int64_t>;
 
 auto get_input()
 {
+	timer t("input");
 	graph_t g(encode("zzz"));
 	std::string ln;
 	while(std::getline(std::cin, ln))
