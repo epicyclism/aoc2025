@@ -58,29 +58,39 @@ auto get_input()
 // this puzzle reduces to whether the target area is greater/equal the sum of
 // present counts times 7.
 //
+#define FAST
+
 int pt1(auto const& in)
 {
 	timer t("p1");
+#if !defined (FAST)
 	// check areas
 	std::array<int, 6> a;
+	// these are all 7...
 	std::ranges::transform(in.first, std::ranges::begin(a), [](auto& sh){ return std::ranges::count(sh, '#');});
-#if 0
+//	a.fill(7);
+	// could the parcels fit? If an arrangement were possible.
+	auto test0 = [&](auto& tgt)
+	{
+		auto ar = tgt.x_ * tgt.y_;
+		auto tar = 0;
+		for(int n = 0; n < a.size(); ++n)
+			tar += a[n] * tgt.qts_[n];
+		return tar <= ar;
+	};
+	// can the parcels be laid out adjacent without any interlocking?
 	auto test = [&](auto& tgt)
-		{
-			auto ar = tgt.x_ * tgt.y_;
-			auto v = std::ranges::zip_transform_view(std::multiplies(), a, tgt.qts_);
-			auto tar = std::ranges::fold_left(v, 0, std::plus());
-			return tar >= ar;
-		};
+	{
+		auto ar = (tgt.x_ / 3)  * (tgt.y_ / 3);
+		return test0(tgt) && ar >= std::ranges::fold_left(tgt.qts_, 0, std::plus());
+	};
+	// it seems that if test0 then also test, so no need to ever dive deeper.
 #else
 	auto test = [&](auto& tgt)
-		{
-			auto ar = tgt.x_ * tgt.y_;
-			auto tar = 0;
-			for(int n = 0; n < a.size(); ++n)
-				tar += a[n] * tgt.qts_[n];
-			return tar <= ar;
-		};
+	{
+		auto ar = (tgt.x_ / 3)  * (tgt.y_ / 3);
+		return ar >= std::ranges::fold_left(tgt.qts_, 0, std::plus());
+	};
 #endif
 	return std::ranges::count_if(in.second, test);
 }
