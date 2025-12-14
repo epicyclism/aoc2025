@@ -10,3 +10,6 @@ endif()
 
 add_executable(aoc10_search aoc10_search.cpp)
 target_link_libraries(aoc10_search PRIVATE ctre::ctre fmt::fmt)
+
+add_executable(simplex simplex.cpp)
+target_link_libraries(simplex PRIVATE ctre::ctre fmt::fmt)
