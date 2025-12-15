@@ -1,228 +1,185 @@
+#include <iostream>
 #include <vector>
-#include <algorithm>
-#include <numeric>
-#include <ranges>
-
-#include "fmt/format.h"
-#include "fmt/ranges.h"
+#include <iomanip>
+#include <limits>
+#include <stdexcept>
 
 using namespace std;
 
-struct Counters
-{
-    vector<int16_t> TargetJolts;
-    vector<vector<int8_t>> Buttons;
+class SimplexSolver {
+private:
+    vector<vector<double>> tableau;
+    int numConstraints, numVariables;
+
+    // Find pivot column (most negative in objective row)
+    int findPivotColumn() {
+        int pivotCol = -1;
+        double minVal = 0.0;
+        for (int j = 0; j < numVariables + numConstraints; j++) {
+            if (tableau[numConstraints][j] < minVal) {
+                minVal = tableau[numConstraints][j];
+                pivotCol = j;
+            }
+        }
+        return pivotCol;
+    }
+
+    // Find pivot row using minimum ratio test
+    int findPivotRow(int pivotCol) {
+        int pivotRow = -1;
+        double minRatio = numeric_limits<double>::infinity();
+        for (int i = 0; i < numConstraints; i++) {
+            if (tableau[i][pivotCol] > 1e-9) { // avoid division by zero
+                double ratio = tableau[i].back() / tableau[i][pivotCol];
+                if (ratio < minRatio) {
+                    minRatio = ratio;
+                    pivotRow = i;
+                }
+            }
+        }
+        return pivotRow;
+    }
+
+    // Perform pivot operation
+    void pivot(int pivotRow, int pivotCol) {
+        double pivotVal = tableau[pivotRow][pivotCol];
+        if (pivotVal == 0) throw runtime_error("Pivot value is zero!");
+
+        // Normalize pivot row
+        for (double& val : tableau[pivotRow]) {
+            val /= pivotVal;
+        }
+
+        // Eliminate pivot column in other rows
+        for (int i = 0; i <= numConstraints; i++) {
+            if (i != pivotRow) {
+                double factor = tableau[i][pivotCol];
+                for (int j = 0; j < tableau[i].size(); j++) {
+                    tableau[i][j] -= factor * tableau[pivotRow][j];
+                }
+            }
+        }
+    }
+
+public:
+#if 0
+    SimplexSolver(const vector<vector<double>>& A, const vector<double>& b, const vector<double>& c) {
+        numConstraints = A.size();
+        numVariables = c.size();
+
+        // Build initial tableau
+        tableau.assign(numConstraints + 1, vector<double>(numVariables + numConstraints + 1, 0.0));
+
+        // Fill constraint coefficients
+        for (int i = 0; i < numConstraints; i++) {
+            for (int j = 0; j < numVariables; j++) {
+                tableau[i][j] = A[i][j];
+            }
+            tableau[i][numVariables + i] = 1.0; // slack variable
+            tableau[i].back() = b[i];
+        }
+
+        // Fill objective function row
+        for (int j = 0; j < numVariables; j++) {
+            tableau[numConstraints][j] = -c[j]; // maximize
+        }
+    }
+#else
+    SimplexSolver(const vector<vector<double>>& A, const vector<double>& b, const vector<double>& c) {
+        numConstraints = A.size();
+        numVariables = c.size();
+
+        // Build initial tableau
+        tableau.assign(numConstraints + 1, vector<double>(numVariables + numConstraints + 1, 0.0));
+
+        // Fill constraint coefficients
+        for (int i = 0; i < numConstraints; i++) {
+            for (int j = 0; j < numVariables; j++) {
+                tableau[i][j] = A[i][j];
+            }
+            tableau[i][numVariables + i] = 0.0; // slack variable
+            tableau[i].back() = b[i];
+        }
+
+        // Fill objective function row
+        for (int j = 0; j < numVariables; j++) {
+            tableau[numConstraints][j] = -c[j]; // maximize
+        }
+    }
+#endif
+    void solve() {
+        while (true) {
+            int pivotCol = findPivotColumn();
+            if (pivotCol == -1) break; // optimal
+
+            int pivotRow = findPivotRow(pivotCol);
+            if (pivotRow == -1) throw runtime_error("Unbounded solution!");
+
+            pivot(pivotRow, pivotCol);
+            printSolution();
+        }
+    }
+
+    void printSolution() {
+        vector<double> solution(numVariables, 0.0);
+
+        for (int j = 0; j < numVariables; j++) {
+            int pivotRow = -1;
+            bool isBasic = true;
+            for (int i = 0; i < numConstraints; i++) {
+                if (abs(tableau[i][j] - 1.0) < 1e-9) {
+                    if (pivotRow == -1) pivotRow = i;
+                    else { isBasic = false; break; }
+                }
+                else if (abs(tableau[i][j]) > 1e-9) {
+                    isBasic = false;
+                    break;
+                }
+            }
+            if (isBasic && pivotRow != -1) {
+                solution[j] = tableau[pivotRow].back();
+            }
+        }
+
+        cout << "Optimal solution found:\n";
+        for (int j = 0; j < numVariables; j++) {
+            cout << "x" << j + 1 << " = " << solution[j] << "\n";
+        }
+        cout << "Max Z = " << tableau[numConstraints].back() << "\n";
+    }
 };
 
-void Scale(vector<int64_t>* v, int64_t s)
-{
-	ranges::for_each(*v, [s](int64_t& i) { i *= s; });
-}
+int main() {
+    try {
+#if 0
+        // Example: Maximize Z = 3x1 + 5x2
+        // Subject to:
+        // 2x1 + 3x2 <= 8
+        // 2x1 +   x2 <= 4
+        // x1, x2 >= 0
 
-vector<vector<int64_t>> CountersToAugmentedMatrix(const Counters& c)
-{
-	vector<vector<int64_t>> m(c.TargetJolts.size(), vector<int64_t>(c.Buttons.size() + 1));
-
-	// Each button is a column
-	for (int64_t column = 0; column < (int64_t)c.Buttons.size(); column++)
-	{
-		for (int8_t row : c.Buttons[column])
-		{
-			m[row][column] = 1;
-		}
-	}
-
-	for (int64_t i = 0; i < (int64_t)c.TargetJolts.size(); i++)
-	{
-		m[i].back() = c.TargetJolts[i];
-	}
-
-	return m;
-}
-
-vector<int64_t> CountersToConstraints(const Counters& c)
-{
-	vector<int64_t> constraints(c.Buttons.size(), numeric_limits<int64_t>::max());
-	for (int64_t button = 0; button < (int64_t)c.Buttons.size(); button++)
-	{
-		for (int8_t counter : c.Buttons[button])
-		{
-			constraints[button] = min<int64_t>(constraints[button], c.TargetJolts[counter]);
-		}
-	}
-    fmt::println("{}", constraints);
-	return constraints;
-}
-
-bool IsNonZeroRow(const vector<int64_t>& v)
-{
-	return ranges::count(v, 0) != (int64_t)v.size();
-}
-
-bool IsZeroRow(const vector<int64_t>& v)
-{
-	return ranges::count(v, 0) == (int64_t)v.size();
-}
-
-vector<int64_t> Reduce(vector<int64_t> rowToReduce, vector<int64_t> reducingRow, int64_t reducingColumn)
-{
-	if (rowToReduce[reducingColumn] == 0)
-	{
-		// Nothing to do
-		return rowToReduce;
-	}
-
-	if (rowToReduce[reducingColumn] < 0)
-	{
-		Scale(&rowToReduce, -1);
-	}
-
-	int64_t scaleTo = lcm(rowToReduce[reducingColumn], reducingRow[reducingColumn]);
-	Scale(&rowToReduce, scaleTo / rowToReduce[reducingColumn]);
-	Scale(&reducingRow, scaleTo / reducingRow[reducingColumn]);
-
-	for (int i = 0; i < (int64_t)rowToReduce.size(); i++)
-	{
-		rowToReduce[i] -= reducingRow[i];
-	}
-
-	return rowToReduce;
-}
-
-void ReduceAndTrim(vector<vector<int64_t>>* pm)
-{
-	vector<vector<int64_t>>& m = *pm;
-	int64_t diagonalEnd = min<int64_t>(m.size(), m.front().size() - 1);
-	for (int64_t diagonal = 0; diagonal < diagonalEnd; diagonal++)
-	{
-		// Put empty rows at the bottom
-		partition(m.begin() + diagonal, m.end(), IsNonZeroRow);
-
-		// Find a row with a non-zero element in the column
-		for (int64_t reducingRow = diagonal; reducingRow < (int64_t)m.size(); reducingRow++)
-		{
-			if (m[reducingRow][diagonal] != 0)
-			{
-				swap(m[diagonal], m[reducingRow]);
-				break;
-			}
-		}
-
-		if (m[diagonal][diagonal] < 0)
-		{
-			Scale(&m[diagonal], -1);
-		}
-
-		for (int64_t rowToReduce = diagonal + 1; rowToReduce < (int64_t)m.size(); rowToReduce++)
-		{
-			m[rowToReduce] = Reduce(m[rowToReduce], m[diagonal], diagonal);
-		}
-	}
-
-	// Get rid of the empty rows
-	m.erase(remove_if(m.begin(), m.end(), IsZeroRow), m.end());
-}
-
-void TrySolvedConstrained(const Counters& counters,
-	const vector<vector<int64_t>>& m,
-	int64_t rowToSolve,
-	int64_t nextUnknown,
-	const vector<int64_t>& constraints,
-	vector<int64_t>* alreadyAssigned,
-	int64_t *minimumPresses)
-{
-	vector<int64_t>& solution = *alreadyAssigned;
-
-	if (nextUnknown == -1)
-	{
-		vector<int16_t> accumulatedJolts(counters.TargetJolts.size(), 0);
-		for (int64_t button = 0; button < (int64_t)counters.Buttons.size(); button++)
-		{
-			for (int8_t counter : counters.Buttons[button])
-			{
-				accumulatedJolts[counter] += (int16_t)solution[button];
-			}
-		}
-
-		if (accumulatedJolts == counters.TargetJolts)
-		{
-			*minimumPresses = min(*minimumPresses, ranges::fold_left(solution, 0, plus{}));
-		}
-
-		return;
-	}
-
-	// If the matrix isn't big enough we're going to need to guess
-	if (nextUnknown > rowToSolve)
-	{
-		for (int64_t guess = 0; guess <= constraints[nextUnknown]; guess++)
-		{
-			solution[nextUnknown] = guess;
-			TrySolvedConstrained(counters, m, rowToSolve, nextUnknown - 1, constraints, alreadyAssigned, minimumPresses);
-		}
-		return;
-	}
-
-	if (m[rowToSolve][nextUnknown] == 0)
-	{
-		// We're not able to solve directly so we need to guess
-		for (int64_t guess = 0; guess <= constraints[nextUnknown]; guess++)
-		{
-			solution[nextUnknown] = guess;
-			TrySolvedConstrained(counters, m, rowToSolve - 1, nextUnknown - 1, constraints, alreadyAssigned, minimumPresses);
-		}
-		return;
-	}
-
-	int64_t rowTargetSum = m[rowToSolve].back();
-
-	// Eliminate everything we already know about
-	for (int64_t known = nextUnknown + 1; known < (int64_t)solution.size(); known++)
-	{
-		rowTargetSum -= m[rowToSolve][known] * solution[known];
-		//m[rowToSolve][known] = 0; // For debugging sanity
-	}
-
-	// Do we have a valid integer solution?
-	if ((rowTargetSum % m[rowToSolve][nextUnknown]) != 0)
-	{
-		// We don't have a valid integer solution, probably an incorrect guess from earlier, so we should bail out
-		return;
-	}
-
-	int64_t tentativeSolution = rowTargetSum / m[rowToSolve][nextUnknown];
-	if (tentativeSolution < 0)
-	{
-		// We're only looking for positive solutions
-		return;
-	}
-
-	solution[nextUnknown] = tentativeSolution;
-
-	TrySolvedConstrained(counters, m, rowToSolve - 1, nextUnknown - 1, constraints, alreadyAssigned, minimumPresses);
-}
-
-void SolveConstrained(const Counters& counters, const vector<vector<int64_t>>& m, const vector<int64_t>& constraints, int64_t *minimumPresses)
-{
-	vector<int64_t> solution(constraints.size(), -1);
-	TrySolvedConstrained(counters, m, min(solution.size() - 1, m.size() - 1), solution.size() - 1, constraints, &solution, minimumPresses);
-}
-
-int main()
-{
-	int64_t answer = 0;
-
-		Counters counters = {{3, 5, 4, 7}, {{3}, {1, 3}, {2}, {2, 3}, {0, 2}, {0,1}}};
-
-		auto matrix = CountersToAugmentedMatrix(counters);
-		auto constraints = CountersToConstraints(counters);
-
-		int64_t minimumPresses = numeric_limits<int64_t>::max();
-
-		ReduceAndTrim(&matrix);
-		SolveConstrained(counters, matrix, constraints, &minimumPresses);
-
-		answer += minimumPresses;
-
-	fmt::println("{}", answer);
+        vector<vector<double>> A = {
+            {2, 3},
+            {2, 1}
+        };
+        vector<double> b = { 8, 4 };
+        vector<double> c = { 3, 5 };
+#else
+        vector<vector<double>> A = {
+            {0, 0, 0, 0, 1, 1},
+            {0, 1, 0, 0, 0, 1 },
+            {0, 0, 1, 1, 1, 0 },
+            {1, 1, 0, 1, 0, 0 }
+        };
+        vector<double> b = { 3, 5, 4, 7 };
+        vector<double> c = { 1, 1, 1, 1, 1, 1 }; // output
+#endif
+        SimplexSolver solver(A, b, c);
+        solver.solve();
+        solver.printSolution();
+    }
+    catch (const exception& e) {
+        cerr << "Error: " << e.what() << "\n";
+    }
+    return 0;
 }

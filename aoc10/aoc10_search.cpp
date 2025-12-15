@@ -17,7 +17,7 @@
 #include "timer.h"
 
 constexpr int dim = 16;
-using j_t = std::array<int, dim>;
+using j_t = std::vector<int>;
 
 struct b_t
 {
@@ -57,14 +57,8 @@ std::vector<uint32_t> to_press(std::string_view v)
 j_t to_jolts(std::string_view v)
 {
 	j_t r;
-	r.fill(0);
-	int n = 0;
-
 	for(auto j : ctre::search_all<"(\\d+)">(v))
-	{
-		r[n] = j.to_number<uint8_t>();
-		++n;
-	}
+		r.emplace_back(j.to_number<int>());
 	return r;
 }
 
