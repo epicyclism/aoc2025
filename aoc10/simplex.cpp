@@ -1,185 +1,156 @@
-#include <iostream>
-#include <vector>
-#include <iomanip>
+//
+// derived from an idea by CoPilot
+//
 #include <limits>
 #include <stdexcept>
 
-using namespace std;
+#include "simplex.h"
 
-class SimplexSolver {
-private:
-    vector<vector<double>> tableau;
-    int numConstraints, numVariables;
+// simplex method with equal constraints, minimum objective
+// 
+// b the target, c picks off the objective function
+// for AoC 2025 Day 10 pt2 example 1,
+//
+// std::vector<double>, double> constraints = {{0, 0, 0, 0, 1, 1},
+//    { 0, 1, 0, 0, 0, 1 },
+//    { 0, 0, 1, 1, 1, 0 },
+//    { 1, 1, 0, 1, 0, 0 }
+//    };
+//    std::vector<double> b = { 3, 5, 4, 7 };
+//    std::vector<double> c = { 1, 1, 1, 1, 1, 1 };
+//
+//   produces a different solution to the problem but same minimum
+//   1 5 0 1 3 0 as opposed to 1 3 0 3 1 2
+//
 
-    // Find pivot column (most negative in objective row)
-    int findPivotColumn() {
-        int pivotCol = -1;
-        double minVal = 0.0;
-        for (int j = 0; j < numVariables + numConstraints; j++) {
-            if (tableau[numConstraints][j] < minVal) {
-                minVal = tableau[numConstraints][j];
-                pivotCol = j;
-            }
-        }
-        return pivotCol;
-    }
+const double EPS = 1e-9; // Tolerance for floating-point comparisons
 
-    // Find pivot row using minimum ratio test
-    int findPivotRow(int pivotCol) {
-        int pivotRow = -1;
-        double minRatio = numeric_limits<double>::infinity();
-        for (int i = 0; i < numConstraints; i++) {
-            if (tableau[i][pivotCol] > 1e-9) { // avoid division by zero
-                double ratio = tableau[i].back() / tableau[i][pivotCol];
-                if (ratio < minRatio) {
-                    minRatio = ratio;
-                    pivotRow = i;
+std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& constraints,
+                                                            target_t const& b,
+                                                            objective_t const& c)
+{
+    std::vector<std::vector<double>> A; // Tableau
+	std::vector<int> basis;        // Basic variable indices
+    auto m = constraints.size();
+    auto n = c.size();
+
+    auto pivot = [&](int row, int col)
+        {
+            double pivotVal = A[row][col];
+            for (double& x : A[row])
+                x /= pivotVal;
+            for (int i = 0; i <= m; i++)
+            {
+                if (i != row)
+                {
+                    double factor = A[i][col];
+                    for (int j = 0; j < (int)A[i].size(); j++)
+                        A[i][j] -= factor * A[row][j];
                 }
             }
-        }
-        return pivotRow;
-    }
-
-    // Perform pivot operation
-    void pivot(int pivotRow, int pivotCol) {
-        double pivotVal = tableau[pivotRow][pivotCol];
-        if (pivotVal == 0) throw runtime_error("Pivot value is zero!");
-
-        // Normalize pivot row
-        for (double& val : tableau[pivotRow]) {
-            val /= pivotVal;
-        }
-
-        // Eliminate pivot column in other rows
-        for (int i = 0; i <= numConstraints; i++) {
-            if (i != pivotRow) {
-                double factor = tableau[i][pivotCol];
-                for (int j = 0; j < tableau[i].size(); j++) {
-                    tableau[i][j] -= factor * tableau[pivotRow][j];
-                }
-            }
-        }
-    }
-
-public:
-#if 0
-    SimplexSolver(const vector<vector<double>>& A, const vector<double>& b, const vector<double>& c) {
-        numConstraints = A.size();
-        numVariables = c.size();
-
-        // Build initial tableau
-        tableau.assign(numConstraints + 1, vector<double>(numVariables + numConstraints + 1, 0.0));
-
-        // Fill constraint coefficients
-        for (int i = 0; i < numConstraints; i++) {
-            for (int j = 0; j < numVariables; j++) {
-                tableau[i][j] = A[i][j];
-            }
-            tableau[i][numVariables + i] = 1.0; // slack variable
-            tableau[i].back() = b[i];
-        }
-
-        // Fill objective function row
-        for (int j = 0; j < numVariables; j++) {
-            tableau[numConstraints][j] = -c[j]; // maximize
-        }
-    }
-#else
-    SimplexSolver(const vector<vector<double>>& A, const vector<double>& b, const vector<double>& c) {
-        numConstraints = A.size();
-        numVariables = c.size();
-
-        // Build initial tableau
-        tableau.assign(numConstraints + 1, vector<double>(numVariables + numConstraints + 1, 0.0));
-
-        // Fill constraint coefficients
-        for (int i = 0; i < numConstraints; i++) {
-            for (int j = 0; j < numVariables; j++) {
-                tableau[i][j] = A[i][j];
-            }
-            tableau[i][numVariables + i] = 0.0; // slack variable
-            tableau[i].back() = b[i];
-        }
-
-        // Fill objective function row
-        for (int j = 0; j < numVariables; j++) {
-            tableau[numConstraints][j] = -c[j]; // maximize
-        }
-    }
-#endif
-    void solve() {
-        while (true) {
-            int pivotCol = findPivotColumn();
-            if (pivotCol == -1) break; // optimal
-
-            int pivotRow = findPivotRow(pivotCol);
-            if (pivotRow == -1) throw runtime_error("Unbounded solution!");
-
-            pivot(pivotRow, pivotCol);
-            printSolution();
-        }
-    }
-
-    void printSolution() {
-        vector<double> solution(numVariables, 0.0);
-
-        for (int j = 0; j < numVariables; j++) {
-            int pivotRow = -1;
-            bool isBasic = true;
-            for (int i = 0; i < numConstraints; i++) {
-                if (abs(tableau[i][j] - 1.0) < 1e-9) {
-                    if (pivotRow == -1) pivotRow = i;
-                    else { isBasic = false; break; }
-                }
-                else if (abs(tableau[i][j]) > 1e-9) {
-                    isBasic = false;
-                    break;
-                }
-            }
-            if (isBasic && pivotRow != -1) {
-                solution[j] = tableau[pivotRow].back();
-            }
-        }
-
-        cout << "Optimal solution found:\n";
-        for (int j = 0; j < numVariables; j++) {
-            cout << "x" << j + 1 << " = " << solution[j] << "\n";
-        }
-        cout << "Max Z = " << tableau[numConstraints].back() << "\n";
-    }
-};
-
-int main() {
-    try {
-#if 0
-        // Example: Maximize Z = 3x1 + 5x2
-        // Subject to:
-        // 2x1 + 3x2 <= 8
-        // 2x1 +   x2 <= 4
-        // x1, x2 >= 0
-
-        vector<vector<double>> A = {
-            {2, 3},
-            {2, 1}
         };
-        vector<double> b = { 8, 4 };
-        vector<double> c = { 3, 5 };
-#else
-        vector<vector<double>> A = {
-            {0, 0, 0, 0, 1, 1},
-            {0, 1, 0, 0, 0, 1 },
-            {0, 0, 1, 1, 1, 0 },
-            {1, 1, 0, 1, 0, 0 }
+    auto simplex = [&](int cols)
+        {
+            while (true)
+            {
+                // Find entering variable (most negative for minimization)
+                int pivotCol = -1;
+                for (int j = 0; j < cols; j++)
+                {
+                    if (A[m][j] < -EPS && (pivotCol == -1 || A[m][j] < A[m][pivotCol]))
+                        pivotCol = j;
+                }
+                if (pivotCol == -1)
+                    break; // Optimal
+
+                // Find leaving variable (minimum ratio test)
+                int pivotRow = -1;
+                double minRatio = std::numeric_limits<double>::infinity();
+                for (int i = 0; i < m; i++)
+                {
+                    if (A[i][pivotCol] > EPS)
+                    {
+                        double ratio = A[i].back() / A[i][pivotCol];
+                        if (ratio < minRatio)
+                        {
+                            minRatio = ratio;
+                            pivotRow = i;
+                        }
+                    }
+                }
+                if (pivotRow == -1)
+                    throw std::runtime_error("Unbounded solution.");
+
+                pivot(pivotRow, pivotCol);
+                basis[pivotRow] = pivotCol;
+            }
         };
-        vector<double> b = { 3, 5, 4, 7 };
-        vector<double> c = { 1, 1, 1, 1, 1, 1 }; // output
-#endif
-        SimplexSolver solver(A, b, c);
-        solver.solve();
-        solver.printSolution();
+
+    // Build initial tableau for Phase 1
+    // Columns: original vars + artificial vars + RHS
+    A.assign(m + 1, std::vector<double>(n + m + 1, 0.0));
+
+    // Fill constraint coefficients
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            A[i][j] = constraints[i][j];
+        }
     }
-    catch (const exception& e) {
-        cerr << "Error: " << e.what() << "\n";
+
+    // Add artificial variables for equality constraints
+    for (int i = 0; i < m; i++) {
+        A[i][n + i] = 1.0; // Artificial variable
+        basis.push_back(n + i);
     }
-    return 0;
+
+    // RHS
+    for (int i = 0; i < m; i++) {
+        A[i].back() = b[i];
+    }
+
+    // Phase 1 objective: minimize sum of artificial vars
+    for (int j = n; j < n + m; j++) {
+        A[m][j] = 1.0;
+    }
+
+    // Make Phase 1 objective row consistent
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j <= n + m; j++) {
+            A[m][j] -= A[i][j];
+        }
+    }
+
+    // Run Phase 1
+    simplex(n + m);
+
+    if (A[m].back() > EPS) {
+        throw std::runtime_error("No feasible solution (infeasible problem).");
+    }
+
+    // Remove artificial variables and set original objective
+    A[m].assign(n + m + 1, 0.0);
+    for (int j = 0; j < n; j++) {
+        A[m][j] = c[j]; // Original minimization objective
+    }
+
+    // Adjust objective row for current basis
+    for (int i = 0; i < m; i++) {
+        if (basis[i] < n) {
+            for (int j = 0; j <= n + m; j++) {
+                A[m][j] -= A[i][j] * c[basis[i]];
+            }
+        }
+    }
+
+    // Run Phase 2
+    simplex(n);
+    
+    // extract solution
+    std::vector<double> x(n, 0.0);
+    for (int i = 0; i < m; i++)
+        if (basis[i] < n)
+            x[basis[i]] = A[i].back();
+            
+
+    return { x, -1 * A[m].back() };
 }

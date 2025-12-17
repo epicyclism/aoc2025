@@ -1,170 +1,76 @@
-#include <iostream>
-#include <vector>
-#include <iomanip>
-#include <limits>
-#include <stdexcept>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 
-using namespace std;
+#include "simplex.h"
 
-class Simplex {
-private:
-    vector<vector<double>> tableau;
-    int numConstraints, numVariables;
+void t1()
+{
+    constraint_t constraints = {{0, 0, 0, 0, 1, 1},
+                                {0, 1, 0, 0, 0, 1},
+                                {0, 0, 1, 1, 1, 0},
+                                {1, 1, 0, 1, 0, 0}};
+    target_t    b = { 3, 5, 4, 7 };
+    objective_t c = { 1, 1, 1, 1, 1, 1 };
 
-    // Pivot operation
-    void pivot(int pivotRow, int pivotCol) {
-        double pivotVal = tableau[pivotRow][pivotCol];
-        if (pivotVal == 0) throw runtime_error("Pivot value is zero — cannot proceed.");
+    auto[t, mn] = solve_equal_min(constraints, b, c);
 
-        // Normalize pivot row
-        for (int j = 0; j < tableau[0].size(); j++)
-            tableau[pivotRow][j] /= pivotVal;
+    fmt::println("solution 1 = {}, opt min {}", t, mn);
+}
 
-        // Eliminate pivot column in other rows
-        for (int i = 0; i < tableau.size(); i++) {
-            if (i != pivotRow) {
-                double factor = tableau[i][pivotCol];
-                for (int j = 0; j < tableau[0].size(); j++)
-                    tableau[i][j] -= factor * tableau[pivotRow][j];
-            }
-        }
-    }
+void t2()
+{
+    constraint_t constraints = {{ 1, 0, 1, 1, 0 },
+                                { 0, 0, 0, 1, 1 },
+                                { 1, 1, 0, 1, 1 },
+                                { 1, 1, 0, 0, 1 },
+                                { 1, 0, 1, 0, 1 }};
+    target_t b = { 7, 5, 12, 7, 2 };
+    objective_t c = { 1, 1, 1, 1, 1 };
 
-    // Find entering variable (most negative in objective row for maximization)
-    int findEnteringColumn() {
-        int col = -1;
-        double minVal = 0;
-        for (int j = 0; j < numVariables + numConstraints; j++) {
-            if (tableau[0][j] < minVal) {
-                minVal = tableau[0][j];
-                col = j;
-            }
-        }
-        return col;
-    }
+    auto [t, mn] = solve_equal_min(constraints, b, c);
 
-    // Find leaving variable (minimum ratio test)
-    int findLeavingRow(int pivotCol) {
-        int row = -1;
-        double minRatio = numeric_limits<double>::infinity();
-        for (int i = 1; i <= numConstraints; i++) {
-            if (tableau[i][pivotCol] > 1e-9) { // avoid division by zero
-                double ratio = tableau[i].back() / tableau[i][pivotCol];
-                if (ratio < minRatio) {
-                    minRatio = ratio;
-                    row = i;
-                }
-            }
-        }
-        return row;
-    }
+    fmt::println("solution 2 = {}, opt min {}", t, mn);
+}
 
-public:
-    Simplex(const vector<vector<double>>& A, const vector<double>& b, const vector<double>& c) {
-        numConstraints = A.size();
-        numVariables = c.size();
+void t3()
+{
+    constraint_t constraints = {{1, 1, 1, 0},
+                                {1, 0, 1, 1 },
+                                {1, 0, 1, 1},
+                                {1, 1, 0, 0},
+                                {1, 1, 1, 0},
+                                {0, 0, 1, 0}};
 
-        // Build tableau for maximization (convert minimization by negating c)
-        tableau.assign(numConstraints + 1, vector<double>(numVariables + numConstraints + 1, 0));
+    target_t b = { 10, 11, 11, 5, 10, 5 };
+    objective_t c = { 1, 1, 1, 1 }; // output
 
-        // Objective row
-        for (int j = 0; j < numVariables; j++)
-            tableau[0][j] = -c[j]; // Negate for minimization
+    auto [t, mn] = solve_equal_min(constraints, b, c);
 
-        // Constraints
-        for (int i = 0; i < numConstraints; i++) {
-            for (int j = 0; j < numVariables; j++)
-                tableau[i + 1][j] = A[i][j];
-            tableau[i + 1][numVariables + i] = 1; // slack variable
-            tableau[i + 1].back() = b[i];
-        }
-    }
+    fmt::println("solution 3 = {}, opt min {}", t, mn);
+}
 
-    void solve() {
-        while (true) {
-            int pivotCol = findEnteringColumn();
-            if (pivotCol == -1) break; // optimal
+void t4()
+{
+    constraint_t constraints = { {1, 1, 1, 0, 0},
+                                {1, 0, 1, 1, 0 },
+                                {1, 0, 1, 1, 0},
+                                {1, 1, 0, 0, 0},
+                                {1, 1, 1, 0, 0},
+                                {0, 0, 1, 0, 0},
+                                {0, 0, 0, 0, 0}};
 
-            int pivotRow = findLeavingRow(pivotCol);
-            if (pivotRow == -1) throw runtime_error("Unbounded solution.");
+    target_t b = { 10, 11, 11, 5, 10, 5, 0 };
+    objective_t c = { 1, 1, 1, 1, 1 }; // output
 
-            pivot(pivotRow, pivotCol);
-        }
-    }
+    auto [t, mn] = solve_equal_min(constraints, b, c);
 
-    void printSolution() {
-        vector<double> solution(numVariables, 0);
-        for (int j = 0; j < numVariables; j++) {
-            int pivotRow = -1;
-            for (int i = 1; i <= numConstraints; i++) {
-                if (abs(tableau[i][j] - 1) < 1e-9) {
-                    bool isBasic = true;
-                    for (int k = 0; k <= numConstraints; k++) {
-                        if (k != i && abs(tableau[k][j]) > 1e-9) {
-                            isBasic = false;
-                            break;
-                        }
-                    }
-                    if (isBasic) {
-                        pivotRow = i;
-                        break;
-                    }
-                }
-            }
-            if (pivotRow != -1) solution[j] = tableau[pivotRow].back();
-        }
+    fmt::println("solution 4 = {}, opt min {}", t, mn);
+}
 
-        cout << "\nOptimal solution found:\n";
-        for (int j = 0; j < numVariables; j++)
-            cout << "x" << j + 1 << " = " << solution[j] << "\n";
-
-        cout << "Minimum value: " << tableau[0].back() << "\n";
-    }
-};
-
-int main() {
-    try {
-#if 0
-        int m, n;
-        cout << "Enter number of constraints: ";
-        if (!(cin >> m) || m <= 0) throw invalid_argument("Invalid number of constraints.");
-
-        cout << "Enter number of variables: ";
-        if (!(cin >> n) || n <= 0) throw invalid_argument("Invalid number of variables.");
-
-        vector<vector<double>> A(m, vector<double>(n));
-        vector<double> b(m), c(n);
-
-        cout << "Enter constraint coefficients (A matrix):\n";
-        for (int i = 0; i < m; i++)
-            for (int j = 0; j < n; j++)
-                if (!(cin >> A[i][j])) throw invalid_argument("Invalid coefficient.");
-
-        cout << "Enter RHS values (b vector):\n";
-        for (int i = 0; i < m; i++)
-            if (!(cin >> b[i])) throw invalid_argument("Invalid RHS value.");
-
-        cout << "Enter objective function coefficients (c vector) for minimization:\n";
-        for (int j = 0; j < n; j++)
-            if (!(cin >> c[j])) throw invalid_argument("Invalid objective coefficient.");
-#else
-        vector<vector<double>> A = {
-            {0, 0, 0, 0, 1, 1},
-            {0, 1, 0, 0, 0, 1 },
-            {0, 0, 1, 1, 1, 0 },
-            {1, 1, 0, 1, 0, 0 }
-            };
-        vector<double> b = { 3, 5, 4, 7 };
-        vector<double> c = { 1, 1, 1, 1, 1, 1 }; // output
-#endif
-        Simplex solver(A, b, c);
-        solver.solve();
-        solver.printSolution();
-
-    }
-    catch (const exception& e) {
-        cerr << "Error: " << e.what() << "\n";
-        return 1;
-    }
-    return 0;
+int main()
+{
+    t1();
+    t2();
+    t3();
+    t4();
 }
