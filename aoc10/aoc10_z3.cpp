@@ -157,6 +157,7 @@ mat11 build_coeff(b_t const& bt)
 }
 
 #if defined (USE_Z3)
+static int n = 0;
 int shortest3(b_t const& bt)
 {
 	auto tgt = build_tgt(bt);
@@ -184,8 +185,16 @@ int shortest3(b_t const& bt)
         fmt::println("unsat...");
         return 0;
     }
+#if 0
     return o.get_model().eval(t[0] + t[1] + t[2] + t[3] + t[4] + t[5] + t[6] + t[7] + t[8]
 								+ t[9] + t[10] + t[11] + t[12] + t[13]+ t[14] + t[15]).as_int64();
+#else
+    auto r = o.get_model().eval(t[0] + t[1] + t[2] + t[3] + t[4] + t[5] + t[6] + t[7] + t[8]
+								+ t[9] + t[10] + t[11] + t[12] + t[13]+ t[14] + t[15]).as_int64();
+	fmt::println("{} {}", n, r);
+	++n;
+	return r;
+#endif
 }
 
 int pt2(auto const& in)

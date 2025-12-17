@@ -146,6 +146,7 @@ auto build_coeff(b_t const& bt)
 	return out;
 }
 
+static int n = 0;
 int shortest2(b_t const& bt)
 {
 	auto A = build_coeff(bt);
@@ -153,6 +154,8 @@ int shortest2(b_t const& bt)
 	objective_t c = objective_t(A[0].size(), 1);
 
 	auto [_, m] = solve_equal_min(A, b, c);
+	fmt::println("{} {}", n, m);
+	++n;
 	return m;
 }
 
