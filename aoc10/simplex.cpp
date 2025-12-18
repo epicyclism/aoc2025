@@ -25,11 +25,13 @@
 
 const double EPS = 1e-9; // Tolerance for floating-point comparisons
 
-std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& constraints,
+using T = double;
+
+std::pair<std::vector<T>, T> solve_equal_min (constraint_t const& constraints,
                                                             target_t const& b,
                                                             objective_t const& c)
 {
-    std::vector<std::vector<double>> A; // Tableau
+    std::vector<std::vector<T>> A; // Tableau
 	std::vector<int> basis;        // Basic variable indices
     auto m = constraints.size();
     auto n = c.size();
@@ -37,14 +39,14 @@ std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& cons
     auto pivot = [&](int row, int col)
         {
             double pivotVal = A[row][col];
-            for (double& x : A[row])
+            for (auto& x : A[row])
                 x /= pivotVal;
             for (int i = 0; i <= m; i++)
             {
                 if (i != row)
                 {
-                    double factor = A[i][col];
-                    for (int j = 0; j < (int)A[i].size(); j++)
+                    auto factor = A[i][col];
+                    for (auto j = 0; j < A[i].size(); j++)
                         A[i][j] -= factor * A[row][j];
                 }
             }
@@ -70,7 +72,7 @@ std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& cons
                 {
                     if (A[i][pivotCol] > EPS)
                     {
-                        double ratio = A[i].back() / A[i][pivotCol];
+                        double ratio = (double)A[i].back() / A[i][pivotCol];
                         if (ratio < minRatio)
                         {
                             minRatio = ratio;
@@ -88,7 +90,7 @@ std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& cons
 
     // Build initial tableau for Phase 1
     // Columns: original vars + artificial vars + RHS
-    A.assign(m + 1, std::vector<double>(n + m + 1, 0.0));
+    A.assign(m + 1, std::vector<T>(n + m + 1, 0.0));
 
     // Fill constraint coefficients
     for (int i = 0; i < m; i++) {
@@ -123,9 +125,9 @@ std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& cons
     // Run Phase 1
     simplex(n + m);
 
-    if (A[m].back() > EPS) {
-        throw std::runtime_error("No feasible solution (infeasible problem).");
-    }
+//    if (A[m].back() > EPS) {
+//        throw std::runtime_error("No feasible solution (infeasible problem).");
+//    }
 
     // Remove artificial variables and set original objective
     A[m].assign(n + m + 1, 0.0);
@@ -146,7 +148,7 @@ std::pair<std::vector<double>, double> solve_equal_min (constraint_t const& cons
     simplex(n);
     
     // extract solution
-    std::vector<double> x(n, 0.0);
+    std::vector<T> x(n, 0.0);
     for (int i = 0; i < m; i++)
         if (basis[i] < n)
             x[basis[i]] = A[i].back();

@@ -137,6 +137,56 @@ public:
     }
 };
 
+double branchAndBound(Simplex& lp, vector<double>& bestX, double bestVal) {
+    vector<double> x;
+    double val = lp.solve(x);
+
+    // If worse than best, prune
+    if (val >= bestVal - 1e-9) return bestVal;
+
+    // Check if integer
+    bool isInt = true;
+    for (double xi : x)
+        if (fabs(xi - round(xi)) > 1e-9) { isInt = false; break; }
+
+    if (isInt) {
+        bestX = x;
+        return val;
+    }
+
+    // Branch on first fractional variable
+    for (int i = 0; i < (int)x.size(); i++) {
+        if (fabs(x[i] - round(x[i])) > 1e-9) {
+            // Left branch: xi <= floor(xi)
+            {
+                auto A2 = lp.A;
+                auto b2 = lp.b;
+                auto c2 = lp.c;
+                vector<double> newRow(lp.n, 0.0);
+                newRow[i] = 1;
+                A2.push_back(newRow);
+                b2.push_back(floor(x[i]));
+                Simplex left(A2, b2, c2);
+                bestVal = branchAndBound(left, bestX, bestVal);
+            }
+            // Right branch: xi >= ceil(xi)
+            {
+                auto A2 = lp.A;
+                auto b2 = lp.b;
+                auto c2 = lp.c;
+                vector<double> newRow(lp.n, 0.0);
+                newRow[i] = -1;
+                A2.push_back(newRow);
+                b2.push_back(-ceil(x[i]));
+                Simplex right(A2, b2, c2);
+                bestVal = branchAndBound(right, bestX, bestVal);
+            }
+            break;
+        }
+    }
+    return bestVal;
+}
+
 void t1()
 {
     vector<vector<double>> constraints = {

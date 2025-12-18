@@ -154,10 +154,10 @@ int shortest2(b_t const& bt)
 	objective_t c = objective_t(A[0].size(), 1);
 
 	auto [_, m] = solve_equal_min(A, b, c);
-	fmt::println("{} {}", n, m);
+	fmt::println("{} {} {}", n, m, _);
 	++n;
 	return m;
-}
+} 
 
 int pt2(auto const& in)
 {
